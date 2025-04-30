@@ -11,9 +11,12 @@
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.3",
+    "@react-three/drei": "^10.0.7",
+    "@react-three/fiber": "^9.1.2",
     "@tailwindcss/postcss": "^4.1.4",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "@types/three": "^0.176.0",
     "@uiw/react-codemirror": "^4.23.11",
     "monaco-editor": "^0.45.0",
     "react": "^19.1.0",

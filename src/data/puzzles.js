@@ -1,7 +1,52 @@
 export const puzzles = [
-  // 3D Coordinate System Model
+  // Rainbow Cube Model
   {
     id: 0,
+    title: "Rainbow Cube",
+    description: "A colorful 3D model with rainbow-colored layers and rounded blocks.",
+    size: 9, // -4 to +4 coordinate system
+    setup: (grid) => {
+      // Create a rainbow-colored cube with different colors for each layer
+      const colors = [
+        1, // Pink (bottom)
+        5, // Red
+        6, // Orange
+        7, // Yellow
+        8, // Green
+        2, // Dark Blue
+        9, // Purple (top)
+      ];
+      
+      // Create the cube with different colored layers
+      for (let y = -3; y <= 3; y++) {
+        // Get color index based on y position
+        const colorIndex = colors[y + 3];
+        
+        for (let x = -3; x <= 3; x++) {
+          for (let z = -3; z <= 3; z++) {
+            // Create outer shell only
+            if (Math.abs(x) === 3 || Math.abs(y) === 3 || Math.abs(z) === 3) {
+              grid.setVoxelCoord(x, y, z, colorIndex);
+            }
+            // Create some internal structure with different pattern
+            else if (Math.abs(x) === 2 && Math.abs(z) === 2) {
+              grid.setVoxelCoord(x, y, z, 4); // White blocks for corners
+            }
+            else if (Math.abs(x) === 2 || Math.abs(z) === 2) {
+              // Skip some blocks for interesting pattern
+              if ((x + z) % 2 === 0) {
+                grid.setVoxelCoord(x, y, z, colorIndex);
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  
+  // 3D Coordinate System Model
+  {
+    id: 1,
     title: "3D Coordinate System Model",
     description: "A 3D model showing a coordinate system with X, Y, Z axes and different colored blocks.",
     size: 9, // -4 to +4 coordinate system

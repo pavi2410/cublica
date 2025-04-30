@@ -1,354 +1,166 @@
-import { useRef, useEffect, useState } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Text, Sphere, Environment, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
-function CubeView({ title, grid, id, className }) {
-  const containerRef = useRef(null);
-  const rendererRef = useRef(null);
-  const sceneRef = useRef(null);
-  const cameraRef = useRef(null);
-  const controlsRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const [viewMode, setViewMode] = useState('3d'); // '3d', 'top', 'front', 'side'
-
-  // Initialize Three.js scene
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Create scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2d3748); // Dark blue background for better contrast
-    sceneRef.current = scene;
-
-    // Create camera
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(12, 12, 12);
-    camera.lookAt(0, 0, 0);
-    cameraRef.current = camera;
-
-    // Create renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    containerRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    // Create controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
-    controlsRef.current = controls;
-
-    // Add lights - improved lighting setup for better visibility
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    directionalLight.position.set(5, 10, 7);
-    scene.add(directionalLight);
-
-    const secondLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    secondLight.position.set(-5, -10, -7);
-    scene.add(secondLight);
-    
-    // Add a hemisphere light for better overall illumination
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-    scene.add(hemisphereLight);
-    
-    // Create grid boundary (white wireframe cube)
-    const gridSize = 9; // -4 to +4 coordinate system
-    const gridGeometry = new THREE.BoxGeometry(gridSize, gridSize, gridSize);
-    const gridMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.8
-    });
-    const gridCube = new THREE.Mesh(gridGeometry, gridMaterial);
-    scene.add(gridCube);
-    
-    // Create colored axis arrows
-    const createAxisArrow = (direction, color) => {
-      const length = 5;
-      const headLength = 0.5;
-      const headWidth = 0.3;
-      const origin = new THREE.Vector3(0, 0, 0);
-      const dir = new THREE.Vector3(...direction).normalize();
-      const arrowHelper = new THREE.ArrowHelper(dir, origin, length, color, headLength, headWidth);
-      return arrowHelper;
+// Voxel component for individual blocks
+function Voxel({ position, color, type }) {
+  // Create a ref for the mesh
+  const meshRef = useRef();
+  
+  // Material properties based on type
+  const materialProps = useMemo(() => {
+    const baseProps = {
+      metalness: 0.4,
+      roughness: 0.2,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.3,
+      reflectivity: 0.5,
     };
     
-    // X-axis (red)
-    const xAxis = createAxisArrow([1, 0, 0], 0xff0000);
-    scene.add(xAxis);
-    
-    // Y-axis (green)
-    const yAxis = createAxisArrow([0, 1, 0], 0x00ff00);
-    scene.add(yAxis);
-    
-    // Z-axis (blue)
-    const zAxis = createAxisArrow([0, 0, 1], 0x0088ff);
-    scene.add(zAxis);
-    
-    // Add coordinate markers
-    const addCoordinateMarkers = () => {
-      // Create points along each axis
-      const pointGeometry = new THREE.SphereGeometry(0.05, 8, 8);
-      const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      
-      // Create grid lines
-      for (let i = -4; i <= 4; i++) {
-        // X-axis markers (red)
-        const xMarker = new THREE.Mesh(pointGeometry, new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-        xMarker.position.set(i, 0, 0);
-        scene.add(xMarker);
-        
-        // Y-axis markers (green)
-        const yMarker = new THREE.Mesh(pointGeometry, new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-        yMarker.position.set(0, i, 0);
-        scene.add(yMarker);
-        
-        // Z-axis markers (blue)
-        const zMarker = new THREE.Mesh(pointGeometry, new THREE.MeshBasicMaterial({ color: 0x0088ff }));
-        zMarker.position.set(0, 0, i);
-        scene.add(zMarker);
-      }
-    };
-    
-    addCoordinateMarkers();
-
-    // Animation loop
-    const animate = () => {
-      animationFrameRef.current = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    // Resize handler
-    const handleResize = () => {
-      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
-      
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      
-      cameraRef.current.aspect = width / height;
-      cameraRef.current.updateProjectionMatrix();
-      
-      rendererRef.current.setSize(width, height);
-      rendererRef.current.setPixelRatio(window.devicePixelRatio);
-      
-      // Force render after resize
-      if (sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameRef.current);
-      
-      if (containerRef.current && rendererRef.current) {
-        containerRef.current.removeChild(rendererRef.current.domElement);
-      }
-      
-      scene.clear();
-    };
-  }, []);
-
-  // Update scene when grid changes
-  useEffect(() => {
-    if (!sceneRef.current || !grid) return;
-
-    const scene = sceneRef.current;
-    
-    // Remove existing voxels but keep lights, axes, and grid
-    scene.children = scene.children.filter(
-      child => child.type === 'AmbientLight' || 
-               child.type === 'DirectionalLight' || 
-               child.type === 'ArrowHelper' || 
-               child.type === 'Mesh' && child.geometry.type === 'BoxGeometry' && child.material.wireframe
-    );
-
-    // Create geometry and material for voxels
-    const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95); // Slightly smaller to see edges better
-    
-    // Create materials with different colors matching the image - with enhanced visibility
-    const materials = {
-      // Pink/magenta for outer shell (type 1) - brighter for better visibility
-      pink: new THREE.MeshStandardMaterial({ 
-        color: 0xff69b4, 
-        emissive: 0x330033,
-        metalness: 0.2, 
-        roughness: 0.5 
-      }),
-      // Dark blue/purple for internal pattern (type 2) - more saturated
-      darkBlue: new THREE.MeshStandardMaterial({ 
-        color: 0x4169e1, 
-        emissive: 0x000033,
-        metalness: 0.3, 
-        roughness: 0.4 
-      }),
-      // Light blue for bottom layer (type 3) - brighter
-      lightBlue: new THREE.MeshStandardMaterial({ 
-        color: 0x00bfff, 
-        emissive: 0x003344,
-        metalness: 0.2, 
-        roughness: 0.3 
-      }),
-      // White for special blocks (type 4) - pure white with slight shine
-      white: new THREE.MeshStandardMaterial({ 
-        color: 0xffffff, 
-        emissive: 0x222222,
-        metalness: 0.1, 
-        roughness: 0.2 
-      })
-    };
-    
-    // Create a group to hold all voxels
-    const voxelGroup = new THREE.Group();
-    
-    // Add coordinate system transformation to match the image
-    // In the image, (0,0,0) appears to be at the center, with coordinates from -4 to +4
-    const gridOffset = 4; // Half of the 9x9x9 grid
-    
-    // Add voxels based on grid data
-    if (grid && grid.grid) {
-      for (let x = 0; x < grid.size; x++) {
-        for (let y = 0; y < grid.size; y++) {
-          for (let z = 0; z < grid.size; z++) {
-            const voxelType = grid.getVoxel(x, y, z);
-            if (voxelType === 0) continue;
-            
-            // Transform coordinates to match the image's coordinate system
-            const xPos = x - gridOffset;
-            const yPos = y - gridOffset;
-            const zPos = z - gridOffset;
-            
-            // Choose material based on voxel type
-            let material;
-            
-            switch(voxelType) {
-              case 1: // Pink/Magenta (border)
-                material = materials.pink;
-                break;
-              case 2: // Dark Blue (internal structure)
-                material = materials.darkBlue;
-                break;
-              case 3: // Light Blue (bottom layer)
-                material = materials.lightBlue;
-                break;
-              case 4: // White (special blocks)
-                material = materials.white;
-                break;
-              default:
-                material = materials.pink; // Default to pink
-            }
-            
-            const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(xPos, yPos, zPos);
-            voxelGroup.add(cube);
-          }
-        }
-      }
+    // Different emissive colors based on type
+    switch(type) {
+      case 1: // Pink
+        return { ...baseProps, color: '#ff69b4', emissive: '#330033', emissiveIntensity: 0.2 };
+      case 2: // Dark Blue
+        return { ...baseProps, color: '#4169e1', emissive: '#000033', emissiveIntensity: 0.2 };
+      case 3: // Light Blue
+        return { ...baseProps, color: '#00bfff', emissive: '#003344', emissiveIntensity: 0.2 };
+      case 4: // White
+        return { ...baseProps, color: '#ffffff', emissive: '#222222', emissiveIntensity: 0.1, metalness: 0.2, roughness: 0.1 };
+      case 5: // Red
+        return { ...baseProps, color: '#ff3333', emissive: '#330000', emissiveIntensity: 0.2 };
+      case 6: // Orange
+        return { ...baseProps, color: '#ff9933', emissive: '#331100', emissiveIntensity: 0.2 };
+      case 7: // Yellow
+        return { ...baseProps, color: '#ffff33', emissive: '#333300', emissiveIntensity: 0.2 };
+      case 8: // Green
+        return { ...baseProps, color: '#33ff33', emissive: '#003300', emissiveIntensity: 0.2 };
+      case 9: // Purple
+        return { ...baseProps, color: '#9933ff', emissive: '#110033', emissiveIntensity: 0.2 };
+      default:
+        return { ...baseProps, color: color || '#ff69b4', emissive: '#330033', emissiveIntensity: 0.2 };
     }
-
-    // Add the voxel group to the scene
-    scene.add(voxelGroup);
-    
-    // Add coordinate number labels
-    const addCoordinateLabels = () => {
-      // Add coordinate numbers along axes
-      for (let i = -4; i <= 4; i++) {
-        if (i === 0) continue; // Skip zero position
-        
-        // Create text for coordinate numbers
-        const createCoordinateText = (position, color, value) => {
-          const textDiv = document.createElement('div');
-          textDiv.className = 'coordinate-label';
-          textDiv.textContent = value;
-          textDiv.style.color = color;
-          textDiv.style.position = 'absolute';
-          textDiv.style.fontSize = '10px';
-          textDiv.style.fontWeight = 'bold';
-          textDiv.style.pointerEvents = 'none';
-          
-          containerRef.current.appendChild(textDiv);
-          
-          // Update position in animation loop
-          const updatePosition = () => {
-            if (!cameraRef.current || !rendererRef.current) return;
-            
-            const vector = new THREE.Vector3(...position);
-            vector.project(cameraRef.current);
-            
-            const x = (vector.x * 0.5 + 0.5) * containerRef.current.clientWidth;
-            const y = (-vector.y * 0.5 + 0.5) * containerRef.current.clientHeight;
-            
-            textDiv.style.left = `${x}px`;
-            textDiv.style.top = `${y}px`;
-          };
-          
-          return updatePosition;
-        };
-        
-        // X-axis labels (red)
-        const xLabelPos = [i, -0.3, 0];
-        const xLabelUpdate = createCoordinateText(xLabelPos, '#ff0000', i);
-        
-        // Y-axis labels (green)
-        const yLabelPos = [-0.3, i, 0];
-        const yLabelUpdate = createCoordinateText(yLabelPos, '#00ff00', i);
-        
-        // Z-axis labels (blue)
-        const zLabelPos = [0, -0.3, i];
-        const zLabelUpdate = createCoordinateText(zLabelPos, '#0088ff', i);
-        
-        // Store update functions to call in animation loop
-        const labelUpdates = [xLabelUpdate, yLabelUpdate, zLabelUpdate];
-        labelUpdates.forEach(update => {
-          const existingAnimate = animationFrameRef.current;
-          animationFrameRef.current = () => {
-            existingAnimate && existingAnimate();
-            update();
-          };
-        });
-      }
-    };
-    
-    // Clean up existing labels before adding new ones
-    const existingLabels = containerRef.current.querySelectorAll('.coordinate-label');
-    existingLabels.forEach(label => label.remove());
-    
-    addCoordinateLabels();
-
-    // Render the scene
-    if (rendererRef.current && cameraRef.current) {
-      rendererRef.current.render(scene, cameraRef.current);
+  }, [color, type]);
+  
+  // Add subtle animation
+  useFrame((state) => {
+    if (meshRef.current) {
+      // Subtle floating effect
+      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 0.5 + position[0] * 0.5 + position[2] * 0.5) * 0.02;
+      
+      // Very subtle rotation
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.3 + position[0]) * 0.01;
+      meshRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.2 + position[2]) * 0.01;
     }
-  }, [grid]);
+  });
+  
+  return (
+    <mesh 
+      ref={meshRef} 
+      position={position} 
+      castShadow 
+      receiveShadow
+    >
+      <boxGeometry args={[0.95, 0.95, 0.95, 2, 2, 2]} /> {/* More segments for rounded look */}
+      <meshPhysicalMaterial {...materialProps} />
+    </mesh>
+  );
+}
 
-  // Function to handle camera view changes
-  const changeView = (mode) => {
-    if (!cameraRef.current || !controlsRef.current) return;
+// Grid component to render the coordinate system grid
+function CoordinateGrid() {
+  return (
+    <>
+      {/* White wireframe cube for grid boundary */}
+      <mesh>
+        <boxGeometry args={[9, 9, 9]} />
+        <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.8} />
+      </mesh>
+      
+      {/* Coordinate axes */}
+      <group>
+        {/* X-axis (red) */}
+        <mesh position={[2.5, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+          <cylinderGeometry args={[0.05, 0.05, 5]} />
+          <meshBasicMaterial color="#ff0000" />
+        </mesh>
+        <mesh position={[5, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+          <coneGeometry args={[0.2, 0.5, 8]} />
+          <meshBasicMaterial color="#ff0000" />
+        </mesh>
+        <Text position={[5.5, 0, 0]} color="#ff0000" fontSize={0.5}>
+          X
+        </Text>
+        
+        {/* Y-axis (green) */}
+        <mesh position={[0, 2.5, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 5]} />
+          <meshBasicMaterial color="#00ff00" />
+        </mesh>
+        <mesh position={[0, 5, 0]}>
+          <coneGeometry args={[0.2, 0.5, 8]} />
+          <meshBasicMaterial color="#00ff00" />
+        </mesh>
+        <Text position={[0, 5.5, 0]} color="#00ff00" fontSize={0.5}>
+          Y
+        </Text>
+        
+        {/* Z-axis (blue) */}
+        <mesh position={[0, 0, 2.5]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 5]} />
+          <meshBasicMaterial color="#0088ff" />
+        </mesh>
+        <mesh position={[0, 0, 5]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.2, 0.5, 8]} />
+          <meshBasicMaterial color="#0088ff" />
+        </mesh>
+        <Text position={[0, 0, 5.5]} color="#0088ff" fontSize={0.5}>
+          Z
+        </Text>
+      </group>
+      
+      {/* Coordinate markers */}
+      {[-4, -3, -2, -1, 1, 2, 3, 4].map((i) => (
+        <group key={`markers-${i}`}>
+          {/* X-axis markers */}
+          <Sphere position={[i, 0, 0]} args={[0.08, 8, 8]}>
+            <meshBasicMaterial color="#ff0000" />
+          </Sphere>
+          <Text position={[i, -0.3, 0]} color="#ff0000" fontSize={0.3} anchorY="top">
+            {i}
+          </Text>
+          
+          {/* Y-axis markers */}
+          <Sphere position={[0, i, 0]} args={[0.08, 8, 8]}>
+            <meshBasicMaterial color="#00ff00" />
+          </Sphere>
+          <Text position={[-0.3, i, 0]} color="#00ff00" fontSize={0.3} anchorX="right">
+            {i}
+          </Text>
+          
+          {/* Z-axis markers */}
+          <Sphere position={[0, 0, i]} args={[0.08, 8, 8]}>
+            <meshBasicMaterial color="#0088ff" />
+          </Sphere>
+          <Text position={[0, -0.3, i]} color="#0088ff" fontSize={0.3} anchorY="top">
+            {i}
+          </Text>
+        </group>
+      ))}
+    </>
+  );
+}
+
+// Scene component that renders the grid and voxels
+function Scene({ grid, viewMode }) {
+  const { camera } = useThree();
+  
+  // Set camera position based on view mode
+  useEffect(() => {
+    if (!camera) return;
     
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
-    
-    // Reset controls
-    controls.reset();
-    
-    switch(mode) {
+    switch(viewMode) {
       case 'top':
         camera.position.set(0, 15, 0);
         break;
@@ -358,99 +170,140 @@ function CubeView({ title, grid, id, className }) {
       case 'side':
         camera.position.set(15, 0, 0);
         break;
-      default: // 3d view - match the isometric view in the image
+      default: // 3d view
         camera.position.set(10, 10, 10);
         break;
     }
     
     camera.lookAt(0, 0, 0);
-    setViewMode(mode);
-  };
+  }, [camera, viewMode]);
   
-  // Function to handle zoom
-  const handleZoom = (direction) => {
-    if (!cameraRef.current) return;
+  // Create voxels from grid data
+  const voxels = useMemo(() => {
+    if (!grid || !grid.grid) return [];
     
-    const camera = cameraRef.current;
-    const zoomFactor = direction === 'in' ? 0.8 : 1.2;
+    const voxelArray = [];
+    const gridOffset = Math.floor(grid.size / 2);
     
-    // For perspective camera, adjust position to zoom
-    const currentDistance = camera.position.length();
-    const newDistance = Math.max(5, Math.min(20, currentDistance * zoomFactor));
-    
-    camera.position.normalize().multiplyScalar(newDistance);
-    camera.lookAt(0, 0, 0);
-  };
-  
-  // Reset camera and controls
-  const resetView = () => {
-    if (!controlsRef.current || !cameraRef.current) return;
-    
-    controlsRef.current.reset();
-    cameraRef.current.position.set(12, 12, 12);
-    cameraRef.current.lookAt(0, 0, 0);
-    setViewMode('3d');
-  };
-
-  // Force re-render when className changes (important for layout changes)
-  useEffect(() => {
-    if (containerRef.current && rendererRef.current && sceneRef.current && cameraRef.current) {
-      // Small delay to ensure the container has been properly laid out
-      setTimeout(() => {
-        handleResize();
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }, 100);
+    for (let x = 0; x < grid.size; x++) {
+      for (let y = 0; y < grid.size; y++) {
+        for (let z = 0; z < grid.size; z++) {
+          const voxelType = grid.getVoxel(x, y, z);
+          if (voxelType === 0) continue;
+          
+          // Transform coordinates to match the coordinate system (-4 to +4)
+          const xPos = x - gridOffset;
+          const yPos = y - gridOffset;
+          const zPos = z - gridOffset;
+          
+          voxelArray.push({
+            key: `voxel-${x}-${y}-${z}`,
+            position: [xPos, yPos, zPos],
+            type: voxelType
+          });
+        }
+      }
     }
-  }, [className]);
+    
+    return voxelArray;
+  }, [grid]);
+  
+  return (
+    <>
+      {/* Lighting */}
+      <ambientLight intensity={0.5} />
+      <directionalLight 
+        position={[5, 10, 7]} 
+        intensity={1.2} 
+        castShadow 
+        shadow-mapSize={[1024, 1024]} 
+        shadow-bias={-0.001}
+      />
+      <directionalLight position={[-5, -10, -7]} intensity={0.7} />
+      <hemisphereLight args={["#ffffff", "#444444", 0.6]} />
+      <pointLight position={[3, 3, 3]} intensity={0.8} distance={15} />
+      <pointLight position={[-3, 6, -3]} intensity={0.6} distance={15} />
+      
+      {/* Environment and shadows */}
+      <Environment preset="city" />
+      <ContactShadows 
+        position={[0, -4.5, 0]} 
+        opacity={0.4} 
+        scale={20} 
+        blur={1.5} 
+        far={4.5} 
+      />
+      
+      {/* Coordinate system */}
+      <CoordinateGrid />
+      
+      {/* Voxels */}
+      {voxels.map((voxel) => (
+        <Voxel 
+          key={voxel.key} 
+          position={voxel.position} 
+          type={voxel.type} 
+        />
+      ))}
+    </>
+  );
+}
 
+// Main CubeView component
+function CubeView({ title, grid, id, className }) {
+  const [viewMode, setViewMode] = useState('3d'); // '3d', 'top', 'front', 'side'
+
+  // View mode buttons
+  const viewButtons = [
+    { mode: '3d', label: '3D' },
+    { mode: 'top', label: 'Top' },
+    { mode: 'front', label: 'Front' },
+    { mode: 'side', label: 'Side' }
+  ];
+  
   return (
     <div className={`cube-view ${className || ''}`}>
-      <div className="cube-title">{title}</div>
-      <div ref={containerRef} className="cube-canvas" id={id}>
-        {/* Coordinate axes labels */}
-        <div className="axis-label x-axis">X</div>
-        <div className="axis-label y-axis">Y</div>
-        <div className="axis-label z-axis">Z</div>
-        
-        {/* View controls */}
-        <div className="view-controls">
-          <button className="view-control zoom-in" onClick={() => handleZoom('in')}>+</button>
-          <button className="view-control zoom-out" onClick={() => handleZoom('out')}>-</button>
-          <button className="view-control reset" onClick={resetView}>⟲</button>
+      <div className="cube-view-header">
+        <h3>{title}</h3>
+        <div className="view-buttons">
+          {viewButtons.map(button => (
+            <button 
+              key={button.mode}
+              className={viewMode === button.mode ? 'active' : ''}
+              onClick={() => setViewMode(button.mode)}
+            >
+              {button.label}
+            </button>
+          ))}
         </div>
-        
-        {/* View mode controls */}
-        <div className="view-mode-controls">
-          <button 
-            className={`view-mode-button ${viewMode === '3d' ? 'active' : ''}`}
-            onClick={() => changeView('3d')}
-          >
-            3D
-          </button>
-          <button 
-            className={`view-mode-button ${viewMode === 'top' ? 'active' : ''}`}
-            onClick={() => changeView('top')}
-          >
-            Top
-          </button>
-          <button 
-            className={`view-mode-button ${viewMode === 'front' ? 'active' : ''}`}
-            onClick={() => changeView('front')}
-          >
-            Front
-          </button>
-          <button 
-            className={`view-mode-button ${viewMode === 'side' ? 'active' : ''}`}
-            onClick={() => changeView('side')}
-          >
-            Side
-          </button>
-        </div>
-        
-        {/* Voxel count indicator */}
-        <div className="voxel-count">
-          Voxels: {grid ? grid.getVoxelCount() : 0}
-        </div>
+      </div>
+      
+      <div className="cube-view-canvas" style={{ width: '100%', height: 'calc(100% - 40px)' }}>
+        <Canvas
+          shadows
+          camera={{ position: [10, 10, 10], fov: 75, near: 0.1, far: 1000 }}
+          gl={{ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: 'high-performance',
+            physicallyCorrectLights: true,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.0
+          }}
+          style={{ background: '#001020' }}
+        >
+          <Scene grid={grid} viewMode={viewMode} />
+          <OrbitControls 
+            enableDamping 
+            dampingFactor={0.25} 
+            rotateSpeed={0.7}
+          />
+        </Canvas>
+      </div>
+      
+      {/* Voxel count indicator */}
+      <div className="voxel-count">
+        Voxels: {grid ? grid.getVoxelCount() : 0}
       </div>
     </div>
   );
