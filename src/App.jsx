@@ -3,6 +3,7 @@ import CubeView from './components/CubeView';
 import CodeEditor from './components/CodeEditor';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import MessageDisplay from './components/MessageDisplay';
 import { puzzles } from './data/puzzles';
 import VoxelGrid from './utils/VoxelGrid';
 
@@ -29,6 +30,8 @@ for (let x = 0; x < 3; x++) {
   // UI state
   const [activeCodeTab, setActiveCodeTab] = useState('code');
   const [activeViewTab, setActiveViewTab] = useState('reference');
+  const [isSolved, setIsSolved] = useState(false);
+  const [message, setMessage] = useState(null);
 
   // Initialize puzzle
   useEffect(() => {
@@ -53,38 +56,29 @@ for (let x = 0; x < 3; x++) {
       // Create a new grid for the result
       const newResultGrid = new VoxelGrid(puzzles[currentPuzzle].size);
       
-      // Execute user code
+      // Get the setVoxel function bound to the new grid
       const setVoxelFunction = newResultGrid.setVoxel.bind(newResultGrid);
       
-      // Create a safe execution environment with limited functions
-      const userFunction = new Function('setVoxel', code);
-      
-      // Execute with timeout to prevent infinite loops
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Execution timed out')), 2000);
-      });
-      
-      Promise.race([
-        new Promise(resolve => {
-          userFunction(setVoxelFunction);
-          resolve();
-        }),
-        timeoutPromise
-      ])
-      .then(() => {
-        // Update result grid
-        setResultGrid(newResultGrid);
-        
-        // Check solution
-        checkSolution(newResultGrid);
-      })
-      .catch(error => {
-        console.error('Code execution error:', error);
-        alert('Error executing code: ' + error.message);
-      });
+      // Import the executeUserCode function from our utility
+      import('./utils/CodeInterpreter.js')
+        .then(({ executeUserCode }) => {
+          // Execute the user code with our utility function
+          return executeUserCode(code, setVoxelFunction, 2000);
+        })
+        .then(() => {
+          // Update result grid
+          setResultGrid(newResultGrid);
+          
+          // Check solution using the existing function
+          checkSolution(newResultGrid);
+        })
+        .catch(error => {
+          console.error('Code execution error:', error);
+          setMessage({ type: 'error', text: `Error: ${error.message}` });
+        });
     } catch (error) {
       console.error('Code execution error:', error);
-      alert('Error executing code: ' + error.message);
+      setMessage({ type: 'error', text: `Error: ${error.message}` });
     }
   };
 
@@ -97,7 +91,8 @@ for (let x = 0; x < 3; x++) {
     
     // Check if both grids have the same dimensions
     if (reference.size !== result.size) {
-      alert('Grid size mismatch! Your model must be the same size as the reference.');
+      setMessage({ type: 'error', text: 'Grid size mismatch! Your model must be the same size as the reference.' });
+      setIsSolved(false);
       return false;
     }
     
@@ -106,7 +101,8 @@ for (let x = 0; x < 3; x++) {
     const resultCount = result.getVoxelCount();
     
     if (referenceCount !== resultCount) {
-      alert(`Voxel count mismatch! Your model has ${resultCount} voxels, but should have ${referenceCount}.`);
+      setMessage({ type: 'error', text: `Voxel count mismatch! Your model has ${resultCount} voxels, but should have ${referenceCount}.` });
+      setIsSolved(false);
       return false;
     }
     
@@ -114,22 +110,29 @@ for (let x = 0; x < 3; x++) {
     for (let x = 0; x < reference.size; x++) {
       for (let y = 0; y < reference.size; y++) {
         for (let z = 0; z < reference.size; z++) {
-          if (reference.getVoxel(x, y, z) !== result.getVoxel(x, y, z)) {
-            alert('Your model does not match the reference! Try again.');
+          const refVoxel = reference.getVoxel(x, y, z);
+          const resultVoxel = result.getVoxel(x, y, z);
+          
+          if (refVoxel !== resultVoxel) {
+            setMessage({ type: 'error', text: 'Your model does not match the reference. Check the positions of your voxels.' });
+            setIsSolved(false);
             return false;
           }
         }
       }
     }
     
-    // If we get here, the solution is correct
-    alert('Congratulations! You solved the puzzle!');
+    setMessage({ type: 'success', text: 'Puzzle solved! ' });
+    setIsSolved(true);
     return true;
   };
 
   return (
     <div className="replicube-container">
       <Header title="RepliCUBE Actions" />
+      
+      {/* Message display for success/error notifications */}
+      <MessageDisplay message={message} />
       
       <div className="replicube-content">
         {/* Code Panel (Left Side) */}
