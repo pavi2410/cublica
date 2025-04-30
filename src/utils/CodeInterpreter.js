@@ -1,80 +1,62 @@
 /**
  * CodeInterpreter - Safely executes user code with controlled environment
- * Provides functionality to run user code with limited access to functions
+ * Processes user code that takes x, y, z coordinates and returns a color value
  */
 
 /**
- * Execute user code with a provided setVoxel function
- * @param {string} code - The user code to execute
- * @param {Function} setVoxelFunction - The function to set voxels
- * @param {number} timeout - Timeout in milliseconds (default: 2000)
+ * Execute user code as a function that takes x, y, z coordinates and returns a color value
+ * @param {string} code - The user code to execute (should return a color value)
+ * @param {number} gridSize - The size of the grid
+ * @param {Function} setVoxelFunction - Function to set voxel with color (x, y, z, colorValue)
+ * @param {number} timeout - Timeout in milliseconds (default: 5000)
  * @returns {Promise} - Resolves when execution completes or rejects on error/timeout
  */
-export const executeUserCode = (code, setVoxelFunction, timeout = 2000) => {
+export const executeCode = (code, gridSize, setVoxelFunction, timeout = 5000) => {
   return new Promise((resolve, reject) => {
     try {
-      // Create a safe execution environment with limited functions
-      const userFunction = new Function('setVoxel', code);
+      // Create a function that takes x, y, z coordinates and returns a color value
+      // We'll add some utility functions like abs() that are used in the example
+      const userFunction = new Function('x', 'y', 'z', `
+        // Add utility functions
+        const abs = Math.abs;
+        ${code}
+      `);
       
-      // Execute with timeout to prevent infinite loops
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Execution timed out')), timeout);
-      });
+      // Set up timeout to prevent infinite loops
+      let timeoutId = setTimeout(() => {
+        reject(new Error('Execution timed out'));
+      }, timeout);
       
-      Promise.race([
-        new Promise(resolve => {
-          userFunction(setVoxelFunction);
-          resolve();
-        }),
-        timeoutPromise
-      ])
-      .then(() => {
+      // Process the entire grid by calling the user function for each coordinate
+      try {
+        const halfGrid = Math.floor(gridSize / 2);
+        const offset = halfGrid; // For converting to -4 to +4 coordinate system
+        
+        for (let x = 0; x < gridSize; x++) {
+          for (let y = 0; y < gridSize; y++) {
+            for (let z = 0; z < gridSize; z++) {
+              // Convert to -4 to +4 coordinate system (or appropriate range based on grid size)
+              const xCoord = x - offset;
+              const yCoord = y - offset;
+              const zCoord = z - offset;
+              
+              // Call user function to get color value
+              const colorValue = userFunction(xCoord, yCoord, zCoord);
+              
+              // If color value is non-zero, set the voxel with that color
+              if (colorValue) {
+                setVoxelFunction(x, y, z, colorValue);
+              }
+            }
+          }
+        }
+        
+        clearTimeout(timeoutId);
         resolve();
-      })
-      .catch(error => {
+      } catch (error) {
+        clearTimeout(timeoutId);
         reject(error);
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-};
-
-/**
- * Execute user code with additional context and functions
- * @param {string} code - The user code to execute
- * @param {Object} context - Object with functions and values to expose to user code
- * @param {number} timeout - Timeout in milliseconds (default: 2000)
- * @returns {Promise} - Resolves when execution completes or rejects on error/timeout
- */
-export const executeUserCodeWithContext = (code, context, timeout = 2000) => {
-  return new Promise((resolve, reject) => {
-    try {
-      // Create parameter names and values arrays from context object
-      const paramNames = Object.keys(context);
-      const paramValues = Object.values(context);
-      
-      // Create a function with the context parameters
-      const userFunction = new Function(...paramNames, code);
-      
-      // Execute with timeout to prevent infinite loops
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Execution timed out')), timeout);
-      });
-      
-      Promise.race([
-        new Promise(resolve => {
-          userFunction(...paramValues);
-          resolve();
-        }),
-        timeoutPromise
-      ])
-      .then(() => {
-        resolve();
-      })
-      .catch(error => {
-        reject(error);
-      });
+      }
     } catch (error) {
       reject(error);
     }
