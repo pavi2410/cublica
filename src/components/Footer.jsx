@@ -4,7 +4,7 @@ function Footer() {
   const [autoRun, setAutoRun] = useState(false);
   
   return (
-    <footer className="replicube-footer">
+    <footer className="cublica-footer">
       <div className="auto-run-container">
         <label htmlFor="auto-run-toggle">Auto run code as I type</label>
         <div 

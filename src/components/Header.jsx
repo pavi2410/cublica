@@ -2,10 +2,10 @@ import React from 'react';
 
 function Header({ title }) {
   return (
-    <header className="replicube-header">
-      <div className="replicube-logo">CUBE</div>
-      <div className="replicube-title">{title}</div>
-      <div className="replicube-close">×</div>
+    <header className="cublica-header">
+      <div className="cublica-logo">CUBE</div>
+      <div className="cublica-title">{title}</div>
+      <div className="cublica-close">×</div>
     </header>
   );
 }

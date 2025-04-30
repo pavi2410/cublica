@@ -53,7 +53,7 @@ body {
 }
 
 /* Main container */
-.replicube-container {
+.cublica-container {
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -64,7 +64,7 @@ body {
 }
 
 /* Header */
-.replicube-header {
+.cublica-header {
   display: flex;
   align-items: center;
   background-color: var(--color-bg-window);
@@ -73,7 +73,7 @@ body {
   padding: 0 5px;
 }
 
-.replicube-logo {
+.cublica-logo {
   background-color: #ff0000;
   color: var(--color-text-light);
   font-weight: bold;
@@ -83,21 +83,21 @@ body {
   margin-right: auto;
 }
 
-.replicube-title {
+.cublica-title {
   font-weight: bold;
   font-size: 14px;
   color: var(--color-text-dark);
   padding: 0 10px;
 }
 
-.replicube-close {
+.cublica-close {
   font-size: 16px;
   cursor: pointer;
   padding: 0 5px;
 }
 
 /* Main content area */
-.replicube-content {
+.cublica-content {
   display: flex;
   flex: 1;
   overflow: hidden;
@@ -507,7 +507,7 @@ canvas {
 }
 
 /* Footer */
-.replicube-footer {
+.cublica-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;

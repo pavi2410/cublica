@@ -143,13 +143,13 @@ return c`);
   };
 
   return (
-    <div className="replicube-container">
-      <Header title="RepliCUBE Actions" />
+    <div className="cublica-container">
+      <Header title="Cublica Actions" />
       
       {/* Message display for success/error notifications */}
       <MessageDisplay message={message} />
       
-      <div className="replicube-content">
+      <div className="cublica-content">
         {/* Code Panel (Left Side) */}
         <div className="code-panel">
           <div className="code-tabs">
@@ -250,7 +250,7 @@ return c`);
               
               {activeViewTab === 'docs' && (
                 <div className="docs-container-top">
-                  <h2>RepliCUBE Documentation</h2>
+                  <h2>Cublica Documentation</h2>
                   
                   <h3>Coordinate-Based Voxel Creation</h3>
                   <p>

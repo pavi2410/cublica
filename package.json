@@ -1,6 +1,7 @@
 {
-  "name": "replicube-clone",
+  "name": "cublica",
   "version": "1.0.0",
+  "private": true,
   "description": "A web-based clone of Replicube - a programming puzzle game about recreating 3D voxel objects",
   "type": "module",
   "main": "index.js",
